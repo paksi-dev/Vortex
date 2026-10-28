@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#10131b">
+<title>Vortex — Mobile Controls</title>
+<style>
+  :root { color-scheme: dark; --bg:#10131b; --panel:#1a2030; --line:#3b4761; --accent:#68d5ff; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; width:100%; height:100%; overflow:hidden; background:var(--bg); color:#f3f6ff; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; touch-action:none; }
+  main { height:100%; min-height:100dvh; display:flex; flex-direction:column; padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
+  header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 0; }
+  h1 { margin:0; font-size:20px; letter-spacing:.04em; }
+  .pill { border:1px solid var(--line); border-radius:999px; padding:6px 10px; font-size:12px; color:#b9c8e4; }
+  #stage { position:relative; flex:1; min-height:180px; overflow:hidden; border:1px solid #293349; border-radius:18px; background:radial-gradient(ellipse at center,#202b40 0%,#121824 68%,#0c1018 100%); }
+  #stage:before { content:""; position:absolute; inset:0; opacity:.25; background-image:linear-gradient(#51617a33 1px,transparent 1px),linear-gradient(90deg,#51617a33 1px,transparent 1px); background-size:32px 32px; }
+  #hint { position:absolute; top:16px; left:16px; right:16px; text-align:center; color:#aab8d2; font-size:13px; line-height:1.45; pointer-events:none; }
+  #player { position:absolute; left:50%; top:50%; width:32px; height:32px; border-radius:50%; background:var(--accent); box-shadow:0 0 24px #68d5ff88; transform:translate(-50%,-50%); border:3px solid #e9faff; }
+  .controls { display:flex; justify-content:space-between; align-items:end; gap:20px; padding:18px 2px 14px; }
+  #joy { width:142px; height:142px; flex:none; position:relative; border-radius:50%; border:2px solid #6b7a96aa; background:#243047bb; box-shadow:inset 0 0 0 9px #ffffff08; touch-action:none; }
+  #joy:before,#joy:after { content:""; position:absolute; background:#90a2c233; }
+  #joy:before { width:1px; height:100%; left:50%; top:0; }
+  #joy:after { height:1px; width:100%; top:50%; left:0; }
+  #knob { position:absolute; left:50%; top:50%; width:56px; height:56px; margin:-28px; border-radius:50%; border:2px solid #d8f6ff; background:linear-gradient(145deg,#78ddff,#2787c4); box-shadow:0 4px 18px #0008; pointer-events:none; }
+  .actions { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .action { width:68px; height:68px; border-radius:50%; border:1px solid #7790b5; background:#27354d; color:white; font-size:12px; font-weight:700; touch-action:manipulation; }
+  .action:active { background:#3b6684; transform:scale(.96); }
+  .small { color:#8f9db7; font-size:11px; text-align:center; max-width:100px; }
+  footer { text-align:center; padding:0 0 10px; color:#7887a3; font-size:11px; }
+  @media (max-height:500px) { header {padding:4px 0} h1{font-size:16px} #joy{width:110px;height:110px} #knob{width:46px;height:46px;margin:-23px} .action{width:56px;height:56px} .controls{padding:8px 2px} }
+</style>
+</head>
+<body>
+<main>
+  <header><h1>VORTEX <span style="color:#68d5ff">/</span> MOBILE</h1><span class="pill">JOYSTICK DEMO</span></header>
+  <section id="stage" aria-label="Demo play area">
+    <div id="hint">Mobile joystick preview<br>Drag the stick to move the glowing marker.</div>
+    <div id="player"></div>
+  </section>
+  <section class="controls">
+    <div id="joy" role="application" aria-label="Virtual joystick"><div id="knob"></div></div>
+    <div class="actions">
+      <button class="action" id="act" type="button">ACTION</button>
+      <div class="small">Optional game action</div>
+    </div>
+  </section>
+  <footer>This is a standalone control prototype, not the original Vortex game.</footer>
+</main>
+<script>
+(() => {
+  const joy = document.getElementById('joy');
+  const knob = document.getElementById('knob');
+  const player = document.getElementById('player');
+  const stage = document.getElementById('stage');
+  const hint = document.getElementById('hint');
+  let active = false, pointerId = null, dx = 0, dy = 0;
+  let x = 0.5, y = 0.5;
+  const radius = () => joy.clientWidth * .31;
+  function updateStick(e) {
+    const r = joy.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    let vx = e.clientX-cx, vy = e.clientY-cy;
+    const max = radius(), len = Math.hypot(vx,vy);
+    if (len > max) { vx = vx/len*max; vy = vy/len*max; }
+    dx = vx/max; dy = vy/max;
+    knob.style.transform = `translate(${vx}px,${vy}px)`;
+  }
+  function movePlayer() {
+    if (active) {
+      const r = stage.getBoundingClientRect();
+      x = Math.max(.04,Math.min(.96,x + dx*.006));
+      y = Math.max(.07,Math.min(.93,y + dy*.006));
+      player.style.left = (x*100)+'%';
+      player.style.top = (y*100)+'%';
+    }
+    requestAnimationFrame(movePlayer);
+  }
+  joy.addEventListener('pointerdown', e => {
+    active=true; pointerId=e.pointerId; joy.setPointerCapture(pointerId); updateStick(e); e.preventDefault();
+  });
+  joy.addEventListener('pointermove', e => { if(active && e.pointerId===pointerId) updateStick(e); });
+  function release(e) {
+    if(e && pointerId!==null && e.pointerId!==pointerId) return;
+    active=false; pointerId=null; dx=0; dy=0; knob.style.transform='translate(0,0)';
+  }
+  joy.addEventListener('pointerup', release);
+  joy.addEventListener('pointercancel', release);
+  document.getElementById('act').addEventListener('click', () => {
+    hint.textContent = 'Action button pressed. Connect this button to the game logic when the source project is available.';
+    setTimeout(()=>{ hint.innerHTML='Mobile joystick preview<br>Drag the stick to move the glowing marker.'; },1800);
+  });
+  requestAnimationFrame(movePlayer);
+})();
+</script>
+</body>
+</html>
